@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+    <script src="/javascripts/jquery-1.9.1.min.js"></script>
+  </head>
+  <body>
+    <h1><%= title %></h1>
+    <p>Welcome to <%= title %></p>
+
+    <button id="start">start</button
+
+
+    <section id="send">
+      <h1>send</h1>
+      <form>
+        <p>
+          <label for="mesg">
+            Input your message to remote peer
+          </label>
+          <br>
+          <textarea name="mesg" rows="5" cols="48"></textarea>
+        </p>
+        <button type="submit">send</button>
+      </form>
+    </section>
+    <section id="receive">
+      <h1>receive</h1>
+      <output>
+        <ul></ul>
+      </output>
+
+    </section>
+
+  </body>
+  <script src="/javascripts/script.js"></script>
+</html>
