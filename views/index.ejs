@@ -9,7 +9,10 @@
     <h1><%= title %></h1>
     <p>Welcome to <%= title %></p>
 
-    <button id="start">start</button
+    <p>Room url : <span id="room-url"></span></p>
+
+    <button id="start">start</button>
+    <button id="send-offer">send Offer</button>
 
 
     <section id="send">
@@ -20,7 +23,7 @@
             Input your message to remote peer
           </label>
           <br>
-          <textarea name="mesg" rows="5" cols="48"></textarea>
+          <input type="text" name="mesg" style="width:480px"></textarea>
         </p>
         <button type="submit">send</button>
       </form>

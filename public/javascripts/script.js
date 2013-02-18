@@ -1,4 +1,19 @@
-var ws = new WebSocket('ws://'+location.host);
+// room url
+var room_no;
+(function(){
+  var url = location.href;
+  $("#room-url").html("<a href='"+url+"' target='_blank'>"+url+"</a>");
+
+  var queries = location.search.slice(1).split("&");
+  queries.forEach(function(query) {
+    if(query.indexOf("r=") === 0) {
+      room_no = query.slice(2);
+    }
+  });
+}());
+
+
+var ws = new WebSocket('ws://'+location.host+"/"+room_no);
 
 ws.onopen = function(e) {
     console.dir(ws);
@@ -9,31 +24,51 @@ ws.onopen = function(e) {
 };
 
 ws.onmessage = function(e) {
-  if(!!e.data) {
-    $("#receive output ul").prepend("<li>"+e.data.replace(/</g, "&lt;").replace(/>/g, "&gt;")+"</li>");
+  var mesg = JSON.parse(e.data);
+
+  if(!!mesg.type && typeof(signalling[mesg.type]) === "function") {
+    signalling[mesg.type](mesg);
+  } else {
   }
 }
 
+function sendDescription(desc) {
+  if(ws.isActive()) {
+    ws.send(JSON.stringify(desc));
+  }
+}
+
+var signalling = {
+  'offer': onReceiveOffer,
+  'answer': onReceiveAnswer,
+  'candidate': onReceiveCandidate,
+  'bye': onReceiveHangup
+}
+
+
 $("#send form").submit(function(e) {
     e.preventDefault();
-    var mesg = $(this).find("textarea").val();
-    $(this).find("textarea").val("");
+    var mesg = $(this).find("input[type=text]").val();
+    // $(this).find("textarea").val("");
 
     if(ws.isActive()) {
-      ws.send(mesg);
+      dataChannel.send(mesg);
     }
 });
 
+outputToReceive = function(ev) {
+  $("#receive ul").prepend("<li>"+ev.data+"</li>");
+}
+
+$("#send button").attr("disabled", "disabled");
+$("#send-offer").attr("disabled", "disabled");
 
 // WebRTC
 /////////////////////////////////////////
-
-var sendChannel, receiveChannel;
-// startButton.disabled = false;
-// sendButton.disabled = true;
-// closeButton.disabled = true;
+var dataChannel;
 
 $("#start").click(createConnection);
+$("#send-offer").click(startSendOffer);
 
 function trace(text) {
     // This function is used for logging.
@@ -44,16 +79,17 @@ function trace(text) {
 }
 
 function createConnection() {
-  var servers = {"iceServers": [{"url": "stun:stun.l.google.com:19302"}]}; // null; // If you use STUN, change null to STUN's url
-  window.pc1 = new webkitRTCPeerConnection(servers,
+  var servers = null; // {"iceServers": [{"url": "stun:stun.l.google.com:19302"}]};
+  // If you use STUN, indicate stun url except for null
+  window.pc = new webkitRTCPeerConnection(servers,
       {optional: [{RtpDataChannels: true}]});
-  trace('Created local peer connection object pc1');
+  trace('Created local peer connection object pc');
 
   try {
     // Reliable Data Channels not yet supported in Chrome
     // Data Channel api supported from Chrome M25.
     // You need to start chrome with  --enable-data-channels flag.
-    sendChannel = pc1.createDataChannel("sendDataChannel",
+    dataChannel = pc.createDataChannel("DataChannel",
         {reliable: false});
     trace('Created send data channel');
   } catch (e) {
@@ -61,108 +97,75 @@ function createConnection() {
         'You need Chrome M25 or later with --enable-data-channels flag');
     trace('Create Data channel failed with exception: ' + e.message);
   }
-  pc1.onicecandidate = iceCallback1;
-  sendChannel.onopen = onSendChannelStateChange;
-  sendChannel.onclose = onSendChannelStateChange;
+  pc.onicecandidate = iceCallback1;
+  dataChannel.onopen = onDataChannelStateChange;
+  dataChannel.onmessage = onDataChannelReceiveMessage;
+  dataChannel.onclose = onDataChannelStateChange;
 
-  // window.pc2 = new webkitRTCPeerConnection(servers,
-  //     {optional: [{RtpDataChannels: true}]});
-  // trace('Created remote peer connection object pc2');
-
-  // pc2.onicecandidate = iceCallback2;
-  // pc2.ondatachannel = receiveChannelCallback;
-
-  pc1.createOffer(gotDescription1);
-  // startButton.disabled = true;
-  // closeButton.disabled = false;
+  $("#start").attr("disabled", "disabled");
+  $("#send-offer").attr("disabled", false);
 }
 
-// function sendData() {
-//     var data = document.getElementById("dataChannelSend").value;
-//     sendChannel.send(data);
-//     trace('Sent Data: ' + data);
-// }
-
-function closeDataChannels() {
-  trace('Closing data Channels');
-  sendChannel.close();
-  trace('Closed data channel with label: ' + sendChannel.label);
-  receiveChannel.close();
-  trace('Closed data channel with label: ' + receiveChannel.label);
-  pc1.close();
-  // pc2.close();
-  pc1 = null;
-  // pc2 = null;
-  trace('Closed peer connections');
-  // startButton.disabled = false;
-  // sendButton.disabled = true;
-  // closeButton.disabled = true;
-  // dataChannelSend.value = "";
-  // dataChannelReceive.value = "";
-  // dataChannelSend.disabled = true;
-  // dataChannelSend.placeholder = "Press Start, enter some text, then press Send.";
+function startSendOffer(){
+  pc.createOffer(function(desc){
+    trace("create Offer succeed. Send it to peer.");
+    pc.setLocalDescription(desc);
+    sendDescription(desc);
+  });
 }
 
-function gotDescription1(desc) {
-    pc1.setLocalDescription(desc);
-    console.dir(desc);
-    trace('Offer from pc1 \n' + desc.sdp);
-    //    pc2.setRemoteDescription(desc);
-    //      pc2.createAnswer(gotDescription2);
+function onReceiveOffer(desc) {
+  trace("Receive Offer from peer.");
+  pc.setRemoteDescription(new RTCSessionDescription(desc));
+  pc.createAnswer(function(desc_) {
+    trace("Create Answer succeeded. Send it to peer.");
+    pc.setLocalDescription(desc_);
+    sendDescription(desc_);
+  });
 }
 
-function gotDescription2(desc) {
-    // pc2.setLocalDescription(desc);
-    trace('Answer from pc2 \n' + desc.sdp);
-    pc1.setRemoteDescription(desc);
+function onReceiveAnswer(desc){
+  trace("Receive Answer from peer.");
+  pc.setRemoteDescription(new RTCSessionDescription(desc));
+}
+
+function onReceiveCandidate(desc){
+  trace("Receive Candidate from peer.");
+  var candidate = new RTCIceCandidate({sdpMLineIndex:desc.label, candidate:desc.candidate});
+  pc.addIceCandidate(candidate);
+}
+
+function onReceiveHangup(desc){
+  trace("Receive Hangup from peer.");
+  pc.close();
+  pc = null;
 }
 
 function iceCallback1(event) {
-    trace('local ice callback');
-    if (event.candidate) {
-      // pc2.addIceCandidate(event.candidate);
-      trace('Local ICE candidate: \n' + event.candidate.candidate);
-    }
-}
-
-function iceCallback2(event) {
-    trace('remote ice callback');
-    if (event.candidate) {
-      // pc1.addIceCandidate(event.candidate);
-      trace('Remote ICE candidate: \n ' + event.candidate.candidate);
-    }
-}
-
-function receiveChannelCallback(event) {
-    trace('Receive Channel Callback');
-    receiveChannel = event.channel;
-    receiveChannel.onmessage = onReceiveMessageCallback;
-    receiveChannel.onopen = onReceiveChannelStateChange;
-    receiveChannel.onclose = onReceiveChannelStateChange;
-}
-
-function onReceiveMessageCallback(event) {
-    trace('Received Message');
-    document.getElementById("dataChannelReceive").value = event.data;
-}
-
-function onSendChannelStateChange() {
-  var readyState = sendChannel.readyState;
-  trace('Send channel state is: ' + readyState);
-  if (readyState == "open") {
-    dataChannelSend.disabled = false;
-    dataChannelSend.focus();
-    dataChannelSend.placeholder = "";
-    sendButton.disabled = false;
-    closeButton.disabled = false;
+  if (event.candidate) {
+    trace("Found candidate. Send it to peer.");
+    sendDescription({
+      type: 'candidate',
+      label: event.candidate.sdpMLineIndex,
+      id: event.candidate.sdpMid,
+      candidate: event.candidate.candidate
+    });
   } else {
-    dataChannelSend.disabled = true;
-    sendButton.disabled = true;
-    closeButton.disabled = true;
+    trace("End of candidate");
   }
 }
 
-function onReceiveChannelStateChange() {
-    var readyState = receiveChannel.readyState;
-    trace('Receive channel state is: ' + readyState);
+
+
+function onDataChannelStateChange() {
+  var readyState = dataChannel.readyState;
+  if(readyState === "open"){
+    $("#send-offer").attr("disabled", "disabled");
+    $("#send button").attr("disabled", false);
+  }
+  trace('Send channel state is: ' + readyState);
+}
+
+function onDataChannelReceiveMessage(ev){
+  outputToReceive(ev);
 }

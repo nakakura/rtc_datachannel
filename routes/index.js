@@ -4,5 +4,10 @@
  */
 
 exports.index = function(req, res){
-  res.render('index', { title: 'WebRTC dataChannel demo' });
+  if(!!req.query.r === false) {
+    var r = Math.floor(Math.random()*1000000);
+    res.redirect("/?r="+r);
+  } else {
+    res.render('index', { title: 'WebRTC dataChannel demo' });
+  }
 };
