@@ -79,7 +79,8 @@ function trace(text) {
 }
 
 function createConnection() {
-  var servers = null; // {"iceServers": [{"url": "stun:stun.l.google.com:19302"}]};
+  // var servers = null;
+  var servers = {"iceServers": [{"url": "stun:stun.l.google.com:19302"}]};
   // If you use STUN, indicate stun url except for null
   window.pc = new webkitRTCPeerConnection(servers,
       {optional: [{RtpDataChannels: true}]});
