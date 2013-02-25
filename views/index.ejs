@@ -8,6 +8,17 @@
   <body>
     <h1><%= title %></h1>
     <p>Welcome to <%= title %></p>
+    <p>
+    <pre>
+    $ sudo ipfw add pipe 1 in proto udp
+    $ sudo ipfw piep1 config plr 0.2
+
+    // show
+    // $sudo ipfw list
+
+    // delete
+    // $sudo ipfw delete 000100
+    </pre>
 
     <p>Room url : <span id="room-url"></span></p>
 
@@ -17,7 +28,7 @@
 
     <section id="send">
       <h1>send</h1>
-      <form>
+      <form id="text">
         <p>
           <label for="mesg">
             Input your message to remote peer
@@ -26,6 +37,11 @@
           <input type="text" name="mesg" style="width:480px"></textarea>
         </p>
         <button type="submit">send</button>
+      </form>
+      <form id="file">
+        <p>
+        <input type="file" name="file">
+        </p>
       </form>
     </section>
     <section id="receive">
