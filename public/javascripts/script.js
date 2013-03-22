@@ -54,9 +54,6 @@ $("#send form#text").submit(function(e) {
 
     if(ws.isActive()) {
       dataChannel.send(mesg);
-      for(var i = 0; i < 10; i+=1) {
-        dataChannel.send(i);
-      }
     }
 });
 
@@ -86,7 +83,7 @@ $("#send form#file input[name=file]").change(function(e){
            dataChannel.send(JSON.stringify(buff[i]));
            i += 1;
          }
-      }, 150);
+      }, 200);
     }
     reader.readAsDataURL(file);
 });
@@ -96,6 +93,7 @@ $("#send form#file").submit(function(e) {
 });
 
 outputToReceive = function(data) {
+  console.log(data);
   if(data.indexOf("data:image") === 0) {
     $("#receive").prepend("<img src='"+data+"'><hr>");
   } else {
@@ -213,11 +211,18 @@ function onDataChannelStateChange() {
 var recvBuff = [];
 function onDataChannelReceiveMessage(ev){
   console.log(ev);
-  var data = JSON.parse(ev.data);
-  recvBuff[data.seq] = data.data
 
-  if(data.seq === data.max)
-    outputToReceive(recvBuff.join(""));
+  try{
+    var data = JSON.parse(ev.data);
+    recvBuff[data.seq] = data.data
+
+    if(data.seq === data.max)
+      outputToReceive(recvBuff.join(""));
+  } catch(e) {
+    recvBuff.length = 0;
+    outputToReceive(ev.data);
+  }
+
 
 //  outputToReceive(ev);
 }
