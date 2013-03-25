@@ -1,16 +1,16 @@
 // room url
 var room_no;
 (function(){
- var url = location.href;
- $("#room-url").html("<a href='"+url+"' target='_blank'>"+url+"</a>");
+  var url = location.protocol + '//' +　location.host + location.pathname + location.search;
+  $("#room-url").html("<a href='"+url+"' target='_blank'>"+url+"</a>");
 
- var queries = location.search.slice(1).split("&");
- queries.forEach(function(query) {
-   if(query.indexOf("r=") === 0) {
-   room_no = query.slice(2);
-   }
-   });
- }());
+  var queries = location.search.slice(1).split("&");
+  queries.forEach(function(query) {
+    if(query.indexOf("r=") === 0) {
+      room_no = query.slice(2);
+    }
+  });
+}());
 
 
 var ws = new WebSocket('ws://'+location.host+"/"+room_no);
@@ -129,43 +129,45 @@ var localVideo = document.getElementById('local'),
 function createConnection() {
 
   navigator.webkitGetUserMedia({video: true, audio:true}, function(stream){
-      localStream = stream;
-      localVideo.src = webkitURL.createObjectURL(stream);
-      localVideo.play();
-      });
+    localStream = stream;
+    localVideo.src = webkitURL.createObjectURL(stream);
+    localVideo.play();
+  });
 
-
-  var servers = null;
-  // var servers = {"iceServers": [{"url": "stun:stun.l.google.com:19302"}]};
+  var servers = {
+    iceServers: [
+      { url: "stun:stun.l.google.com:19302"}
+    ]
+  };
+  var options = {
+    optional: [
+      { RtpDataChannels: true } // use data channel
+    ]
+  };
   // If you use STUN, indicate stun url except for null
-  // window.pc = new webkitRTCPeerConnection(servers,
-  //     {optional: [{RtpDataChannels: true}]});
-  // trace('Created local peer connection object pc');
+  window.pc = new webkitRTCPeerConnection(servers, options);
+  trace('Created local peer connection object pc');
 
-  window.pc = new webkitRTCPeerConnection({
-      "iceServers": [
-      {"url": "stun:stun.l.google.com:19302"}
-      ]
-      });
-
-  // try {
-  //   // Reliable Data Channels not yet supported in Chrome
-  //   // Data Channel api supported from Chrome M25.
-  //   // You need to start chrome with  --enable-data-channels flag.
-  //   dataChannel = pc.createDataChannel("DataChannel",{reliable: false});
-  //   //     {reliable: true});
-  //   trace('Created send data channel');
-  // } catch (e) {
-  //   alert('Failed to create data channel. ' +
-  //       'You need Chrome M25 or later with --enable-data-channels flag');
-  //   trace('Create Data channel failed with exception: ' + e.message);
-  // }
+  // data channel
+  try {
+    // Reliable Data Channels not yet supported in Chrome
+    // Data Channel api supported from Chrome M25.
+    // You need to start chrome with  --enable-data-channels flag.
+    dataChannel = pc.createDataChannel("DataChannel",{reliable: false});
+    //     {reliable: true});
+    trace('Created send data channel');
+  } catch (e) {
+    alert('Failed to create data channel. ' +
+        'You need Chrome M25 or later with --enable-data-channels flag');
+    trace('Create Data channel failed with exception: ' + e.message);
+  }
   pc.onicecandidate = iceCallback1;
-  // dataChannel.onopen = onDataChannelStateChange;
-  // dataChannel.onmessage = onDataChannelReceiveMessage;
-  // dataChannel.onclose = onDataChannelStateChange;
+  dataChannel.onopen = onDataChannelStateChange;
+  dataChannel.onmessage = onDataChannelReceiveMessage;
+  dataChannel.onclose = onDataChannelStateChange;
+
+  // remote stream
   pc.onaddstream = function(e) {
-    console.log(1);
     remoteVideo.src = webkitURL.createObjectURL(e.stream);
     remoteVideo.play();
   };
@@ -175,39 +177,24 @@ function createConnection() {
 }
 
 function startSendOffer(){
-
-  // getUserMedia縺ｧ蜿門ｾ励＠縺溘せ繝医Μ繝ｼ繝繝��繧ｿ繧定ｿｽ蜉
   pc.addStream(localStream);
-
-  // 繧ｪ繝輔ぃ繝ｼ繧剃ｽ懈�
   pc.createOffer(function(description){
-      pc.setLocalDescription(description);
-      sendDescription(description);
-      });
-
-  // pc.createOffer(function(desc){
-  //   trace("create Offer succeed. Send it to peer.");
-  //   pc.setLocalDescription(desc);
-  //   sendDescription(desc);
-  // });
+    trace("create Offer succeed. Send it to peer.");
+    pc.setLocalDescription(description);
+    sendDescription(description);
+  });
 }
 
 function onReceiveOffer(desc) {
   pc.addStream(localStream);
   pc.setRemoteDescription(new RTCSessionDescription(desc), function(){
-
+      trace("Receive Offer from peer.");
       pc.createAnswer(function(description){
+        trace("Create Answer succeeded. Send it to peer.");
         pc.setLocalDescription(description);
         sendDescription(description);
-        });
       });
-  // trace("Receive Offer from peer.");
-  // pc.setRemoteDescription(new RTCSessionDescription(desc));
-  // pc.createAnswer(function(desc_) {
-  //   trace("Create Answer succeeded. Send it to peer.");
-  //   pc.setLocalDescription(desc_);
-  //   sendDescription(desc_);
-  // });
+  });
 }
 
 function onReceiveAnswer(desc){
@@ -231,14 +218,14 @@ function iceCallback1(event) {
   if (event.candidate) {
     trace("Found candidate. Send it to peer.");
     sendDescription({
-type: 'candidate',
-label: event.candidate.sdpMLineIndex,
-id: event.candidate.sdpMid,
-candidate: event.candidate.candidate
-});
-} else {
-  trace("End of candidate");
-}
+      type: 'candidate',
+      label: event.candidate.sdpMLineIndex,
+      id: event.candidate.sdpMid,
+      candidate: event.candidate.candidate
+    });
+  } else {
+    trace("End of candidate");
+  }
 }
 
 
