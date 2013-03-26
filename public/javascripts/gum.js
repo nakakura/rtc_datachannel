@@ -1,4 +1,5 @@
-// room url
+// obtaining room id from url
+/////////////////////////////////////////////////////////////
 var room_no;
 (function(){
   var url = location.protocol + '//' +　location.host + location.pathname + location.search;
@@ -12,89 +13,64 @@ var room_no;
   });
 }());
 
-
-var ws = new WebSocket('ws://'+location.host+"/"+room_no);
-
-ws.onopen = function(e) {
-  console.dir(ws);
-  var self = this;
-  this.isActive = function(){
-    return self.readyState === window.WebSocket.prototype.OPEN;
+// utility function
+///////////////////////////////////////////////////////////////
+function trace(text) {
+  // This function is used for logging.
+  if (text[text.length - 1] == '\n') {
+    text = text.substring(0, text.length - 1);
   }
-};
-
-ws.onmessage = function(e) {
-  var mesg = JSON.parse(e.data);
-
-  if(!!mesg.type && typeof(signalling[mesg.type]) === "function") {
-    signalling[mesg.type](mesg);
-  } else {
-  }
-}
-
-function sendDescription(desc) {
-  if(ws.isActive()) {
-    ws.send(JSON.stringify(desc));
-    console.log(desc);
-  }
-}
-
-var signalling = {
-  'offer': onReceiveOffer,
-  'answer': onReceiveAnswer,
-  'candidate': onReceiveCandidate,
-  'bye': onReceiveHangup
+  console.log((performance.now() / 1000).toFixed(3) + ": " + text);
 }
 
 
+
+// event handlers for User Interface
+//////////////////////////////////////////////////////
 $("#send form#text").submit(function(e) {
-    e.preventDefault();
-    var mesg = $(this).find("input[type=text]").val();
-    if(!!mesg === false) return;
-    $(this).find("input[name=mesg]").val("");
+  e.preventDefault();
+  var mesg = $(this).find("input[type=text]").val();
+  if(!!mesg === false) return;
+  $(this).find("input[name=mesg]").val("");
 
-    if(ws.isActive()) {
-    dataChannel.send(mesg);
-    for(var i = 0; i < 10; i+=1) {
-    dataChannel.send(i);
-    }
-    }
-    });
+  var obj = {"seq": 0, "max": 0, "data": mesg}
+
+  dataChannel.send(JSON.stringify(obj));
+});
 
 $("#send form#file input[name=file]").change(function(e){
-    var file = e.target.files[0];
-    var reader = new FileReader();
-    reader.onload  = function(e){
+  var file = e.target.files[0];
+  var reader = new FileReader();
+  reader.onload  = function(e){
     var data = e.target.result;
     var len = data.length;
     var plen = 300;
     var buff = [];
 
     for( var i = 0, l = Math.ceil(len / plen); i < l; i += 1) {
-    var data_ = data.slice(plen * i, plen * (i + 1));
-    var obj = {"seq": i, "max": l - 1, "data": data_};
-    // dataChannel.send(JSON.stringify(obj));
-    buff.push(obj);
+      var data_ = data.slice(plen * i, plen * (i + 1));
+      var obj = {"seq": i, "max": l - 1, "data": data_};
+      buff.push(obj);
     }
 
     var i = 0, l = Math.ceil(len / plen);
     var timer = setInterval(function(e) {
       console.log(i);
       if(i === l) {
-      clearInterval(timer);
-      return;
+        clearInterval(timer);
+        return;
       } else {
-      dataChannel.send(JSON.stringify(buff[i]));
-      i += 1;
+        dataChannel.send(JSON.stringify(buff[i]));
+        i += 1;
       }
-      }, 150);
-    }
-    reader.readAsDataURL(file);
+    }, 150);
+  }
+  reader.readAsDataURL(file);
 });
 
 $("#send form#file").submit(function(e) {
-    e.preventDefault();
-    });
+  e.preventDefault();
+});
 
 outputToReceive = function(data) {
   if(data.indexOf("data:image") === 0) {
@@ -107,33 +83,59 @@ outputToReceive = function(data) {
 $("#send button").attr("disabled", "disabled");
 $("#send-offer").attr("disabled", "disabled");
 
-// WebRTC
-/////////////////////////////////////////
-var dataChannel;
-
 $("#start").click(createConnection);
 $("#send-offer").click(startSendOffer);
 
-function trace(text) {
-  // This function is used for logging.
-  if (text[text.length - 1] == '\n') {
-    text = text.substring(0, text.length - 1);
+// establish signalling channel via WebSocket
+/////////////////////////////////////////////////////////////////
+var ws = new WebSocket('ws://'+location.host+"/"+room_no);
+
+ws.onopen = function(e) {
+  console.dir(ws);
+  var self = this;
+  this.isActive = true;
+};
+
+ws.onmessage = function(e) {
+  var mesg = JSON.parse(e.data);
+
+  if(!!mesg.type && typeof(signalling[mesg.type]) === "function") {
+    signalling[mesg.type](mesg);
+  } else {
   }
-  console.log((performance.now() / 1000).toFixed(3) + ": " + text);
 }
 
-var localVideo = document.getElementById('local'),
-    remoteVideo = document.getElementById('remote'),
-    localStream, remoteStream;
+ws.onclose = function(e) {
+  this.isActive = false;
+}
 
+function sendDescription(desc) {
+  if(ws.isActive) {
+    ws.send(JSON.stringify(desc));
+    console.log(desc);
+  }
+}
+
+var signalling = {
+  'offer': onReceiveOffer,
+  'answer': onReceiveAnswer,
+  'candidate': onReceiveCandidate,
+  'bye': onReceiveHangup
+}
+// WebRTC
+/////////////////////////////////////////
+var dataChannel,
+  localVideo = document.getElementById('local'),
+  remoteVideo = document.getElementById('remote'),
+  localStream,
+  remoteStream;
+
+
+//
+// callback functions for UserInterfaces
+
+// When start btn clicked
 function createConnection() {
-
-  navigator.webkitGetUserMedia({video: true, audio:true}, function(stream){
-    localStream = stream;
-    localVideo.src = webkitURL.createObjectURL(stream);
-    localVideo.play();
-  });
-
   var servers = {
     iceServers: [
       { url: "stun:stun.l.google.com:19302"}
@@ -148,6 +150,15 @@ function createConnection() {
   window.pc = new webkitRTCPeerConnection(servers, options);
   trace('Created local peer connection object pc');
 
+  // Start capturing video and audio
+  navigator.webkitGetUserMedia({video: true, audio:true}, function(stream){
+    localStream = stream;
+    localVideo.src = webkitURL.createObjectURL(stream);
+    localVideo.play();
+    pc.addStream(localStream);
+  });
+
+
   // data channel
   try {
     // Reliable Data Channels not yet supported in Chrome
@@ -161,29 +172,66 @@ function createConnection() {
         'You need Chrome M25 or later with --enable-data-channels flag');
     trace('Create Data channel failed with exception: ' + e.message);
   }
-  pc.onicecandidate = iceCallback1;
+
+  // callback definitions for peer-peer
+  pc.onicecandidate = iceCandidateCallback;
+  pc.onaddstream = addStreamCallback;
+  pc.onnegotiationneeded = negotiationNeededCallback;
+
+  // callback definitions for datachannel
   dataChannel.onopen = onDataChannelStateChange;
   dataChannel.onmessage = onDataChannelReceiveMessage;
   dataChannel.onclose = onDataChannelStateChange;
 
-  // remote stream
-  pc.onaddstream = function(e) {
-    remoteVideo.src = webkitURL.createObjectURL(e.stream);
-    remoteVideo.play();
-  };
 
   $("#start").attr("disabled", "disabled");
   $("#send-offer").attr("disabled", false);
 }
 
+// when send offer btn clicked.
 function startSendOffer(){
-  pc.addStream(localStream);
   pc.createOffer(function(description){
     trace("create Offer succeed. Send it to peer.");
     pc.setLocalDescription(description);
     sendDescription(description);
   });
 }
+
+//
+// callback functions for peer-connection api
+//
+
+// When ICE candidate info is received, send remote peer
+// via Signalling channel
+function iceCandidateCallback(event) {
+  if (event.candidate) {
+    trace("Found candidate. Send it to peer.");
+    sendDescription({
+      type: 'candidate',
+      label: event.candidate.sdpMLineIndex,
+      id: event.candidate.sdpMid,
+      candidate: event.candidate.candidate
+    });
+  } else {
+    trace("End of candidate");
+  }
+}
+
+
+// When receive remote stream, make it visible
+function addStreamCallback(event) {
+  remoteVideo.src = webkitURL.createObjectURL(event.stream);
+  remoteVideo.play();
+};
+
+// When negotiationneeded event fired.
+function negotiationNeededCallback(event) {
+  console.log("fired negotiationneeded event");
+}
+
+//
+// callback functions for arriving message from signalling channel
+//
 
 function onReceiveOffer(desc) {
   pc.addStream(localStream);
@@ -214,19 +262,6 @@ function onReceiveHangup(desc){
   pc = null;
 }
 
-function iceCallback1(event) {
-  if (event.candidate) {
-    trace("Found candidate. Send it to peer.");
-    sendDescription({
-      type: 'candidate',
-      label: event.candidate.sdpMLineIndex,
-      id: event.candidate.sdpMid,
-      candidate: event.candidate.candidate
-    });
-  } else {
-    trace("End of candidate");
-  }
-}
 
 
 
@@ -245,8 +280,8 @@ function onDataChannelReceiveMessage(ev){
   var data = JSON.parse(ev.data);
   recvBuff[data.seq] = data.data
 
-    if(data.seq === data.max)
-      outputToReceive(recvBuff.join(""));
+  if(data.seq === data.max)
+    outputToReceive(recvBuff.join(""));
 
-  //  outputToReceive(ev);
+  recvBuff.length = 0;
 }

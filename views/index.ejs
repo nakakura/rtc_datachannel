@@ -8,23 +8,11 @@
   <body>
     <h1><%= title %></h1>
     <p>Welcome to <%= title %></p>
-    <p>
-    <pre>
-    $ sudo ipfw add pipe 1 in proto udp
-    $ sudo ipfw piep1 config plr 0.2
-
-    // show
-    // $sudo ipfw list
-
-    // delete
-    // $sudo ipfw delete 000100
-    </pre>
-
     <p>Room url : <span id="room-url"></span></p>
 
     <button id="start">start</button>
     <button id="send-offer">send Offer</button>
-    
+
     <section>
       <h1>Views</h1>
       <video id="local" autoplay></video>
@@ -56,6 +44,25 @@
       </output>
 
     </section>
+    <hr>
+    <p>
+    <h4>If you want to emulate network condition via MacOS X, below command is make sense.</h4>
+    <pre>
+    $ sudo ipfw add pipe 1 in proto udp
+    $ sudo ipfw piep1 config plr 0.2
+
+    // show
+    // $sudo ipfw list
+
+    // delete
+    // $sudo ipfw delete 000100
+    </pre>
+    </p>
+
+    <footer>
+    &copy;2013 komasshu
+    </footer>
+
 
   </body>
   <script src="/javascripts/gum.js"></script>
