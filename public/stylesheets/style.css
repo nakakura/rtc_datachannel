@@ -6,3 +6,13 @@ body {
 a {
   color: #00B7FF;
 }
+
+video {
+  border: 1px solid gray;
+  width: 200px;
+  height: 200px;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  -ms-box-sizing: border-box;
+  box-sizing: border-box;
+}
