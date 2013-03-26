@@ -2,7 +2,7 @@
 /////////////////////////////////////////////////////////////
 var room_no;
 (function(){
-  var url = location.protocol + '//' +　location.host + location.pathname + location.search;
+  var url = location.protocol + '//' + location.host + location.pathname + location.search;
   $("#room-url").html("<a href='"+url+"' target='_blank'>"+url+"</a>");
 
   var queries = location.search.slice(1).split("&");
