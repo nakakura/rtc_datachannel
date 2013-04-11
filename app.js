@@ -63,7 +63,7 @@ wss.on('connection', function(ws) {
     });
 
     ws.on('close', function(ev){
-      var idx = rooms[room_no].peers.hasOwnProperty(ws);
+      var idx = rooms[room_no].peers.indexOf(ws);
       console.log("connection terminated for %d", idx);
 
       if(idx !== -1) {
