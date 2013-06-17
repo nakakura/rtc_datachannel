@@ -234,7 +234,6 @@ function negotiationNeededCallback(event) {
 //
 
 function onReceiveOffer(desc) {
-  pc.addStream(localStream);
   pc.setRemoteDescription(new RTCSessionDescription(desc), function(){
       trace("Receive Offer from peer.");
       pc.createAnswer(function(description){

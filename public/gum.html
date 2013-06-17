@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+	<title>getUserMedia to jpeg sample</title>
+	<script type="text/javascript" src="./javascripts/jquery-1.9.1.min.js"></script>
+	<style type="text/css">
+	canvas { display: none;} /* 画像変換用の不可視のcanvas */
+	</style>
+</head>
+<body>
+	<section>
+		<h1>video</h1>
+		<video></video>
+	</section>
+	<section>
+		<h1>captured jpeg</h1>
+		<canvas></canvas>
+		<textarea cols="180" rows="10" heighreadonly></textarea><br>
+		<img><br>
+	</section>
+
+<script type="text/javascript">
+(function(){
+	var $v_ = $("video")
+		, $c_ = $("canvas")
+		, $i_ = $("img")
+		, ctx_ = $c_[0].getContext('2d')
+		, $t_ = $("textarea")
+
+	// Streaming開始
+	navigator.webkitGetUserMedia({video: true, audio: false}, function(stream){
+		var url = window.webkitURL.createObjectURL(stream);
+		$v_[0].src = url;
+		$v_[0].play();
+	})
+
+	// Videoの再生が始まったら、JPEGの取得を開始する。
+	$v_.on("playing", function(){
+		// canvas(不可視)のサイズをvideoサイズに変更	
+		$c_[0].width = $(this)[0].videoWidth;
+		$c_[0].height = $(this)[0].videoHeight;
+
+		// 1秒おきに画像に変更
+		setInterval(function(){
+			// 映像フレームをcanvasに書き出す
+			ctx_.drawImage($(this)[0], 0, 0)
+
+			// canvas内の画像を JPEG のデータURLに変換する	
+			var dataURL = $c_[0].toDataURL('image/jpeg')
+
+			// img出力および文字列出力
+			$i_.attr("src", dataURL)
+			$t_.text(dataURL)
+		}.bind(this), 1000)
+	})
+}())
+</script>
+</body>
+</html>
