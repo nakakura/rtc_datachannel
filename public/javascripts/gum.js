@@ -113,15 +113,24 @@ ws.onclose = function(e) {
 function sendDescription(desc) {
     if(ws.isActive) {
         if(desc.type == 'offer'){
+            if(!doUsePrivateIP()){
+                console.log('------------------------------');
+                console.log(desc);
+                console.log('------------------------------');
+                var leg = RegExp(/\r\na=candidate:.* typ host generation \d/g);
+                desc.sdp = desc.sdp.replace(leg, '');
+            }
         } else if(desc.type == 'candidate'){
-            if(isInvalidIPAddress(desc.candidate.toString())){
-                console.log('exit sendDescription because IP address is ' + desc.candidate.toString());
-                return;
+            if(!doUsePrivateIP()){
+                if(isInvalidIPAddress(desc.candidate.toString())){
+                    console.log('exit sendDescription because IP address is ' + desc.candidate.toString());
+                    return;
+                } else{
+                }
             }
         }
 
         ws.send(JSON.stringify(desc));
-        console.log(desc);
     }
 }
 
@@ -205,6 +214,12 @@ function createConnection() {
 function startSendOffer(){
     pc.createOffer(function(description){
         trace("create Offer succeed. Send it to peer.");
+
+        if(!doUsePrivateIP()){
+            var leg = RegExp(/\r\na=candidate:.* typ host generation \d/g);
+            description.sdp = description.sdp.replace(leg, '');
+        }
+
         pc.setLocalDescription(description);
         sendDescription(description);
     });
@@ -219,12 +234,15 @@ function startSendOffer(){
 function iceCandidateCallback(event) {
     if (event.candidate) {
 
-        if(isInvalidIPAddress(event.candidate.candidate.toString())){
-            console.log('exit iceCandidateCallback because IP address is ' + event.candidate.candidate);
-            return;
+        if(!doUsePrivateIP()){
+            if(isInvalidIPAddress(event.candidate.candidate.toString())){
+                console.log('exit iceCandidateCallback because IP address is ' + event.candidate.candidate);
+                return;
+            }
         }
 
         trace("Found candidate. Send it to peer.");
+
         sendDescription({
             type: 'candidate',
             label: event.candidate.sdpMLineIndex,
@@ -253,13 +271,15 @@ function negotiationNeededCallback(event) {
 //
 
 function onReceiveOffer(desc) {
-    console.log('onreceive1');
-    console.log(desc);
-    console.log('onreceive2');
     pc.setRemoteDescription(new RTCSessionDescription(desc), function(){
         trace("Receive Offer from peer.");
         pc.createAnswer(function(description){
             trace("Create Answer succeeded. Send it to peer.");
+            if(!doUsePrivateIP()){
+                var leg = RegExp(/\r\na=candidate:.* typ host generation \d/g);
+                description.sdp = description.sdp.replace(leg, '');
+            }
+
             pc.setLocalDescription(description);
             sendDescription(description);
         });
@@ -274,15 +294,18 @@ function onReceiveAnswer(desc){
 function onReceiveCandidate(desc){
     trace("Receive Candidate from peer.");
 
-    if(isInvalidIPAddress(desc.candidate.toString())){
-        console.log('exit onReceiveCandidate because IP address is ' + desc.candidate);
-        return;
+    if(!doUsePrivateIP()){
+        if(isInvalidIPAddress(desc.candidate.toString())){
+            console.log('exit onReceiveCandidate because IP address is ' + desc.candidate);
+            return;
+        }
     }
 
     trace("Receive Candidate from peer2.");
 
     var candidate = new RTCIceCandidate({sdpMLineIndex:desc.label, candidate:desc.candidate});
     pc.addIceCandidate(candidate);
+
 }
 
 function onReceiveHangup(desc){
@@ -302,7 +325,6 @@ function onDataChannelStateChange() {
 
 var recvBuff = [];
 function onDataChannelReceiveMessage(ev){
-    console.log(ev);
     var data = JSON.parse(ev.data);
     recvBuff[data.seq] = data.data
 
@@ -312,12 +334,20 @@ function onDataChannelReceiveMessage(ev){
     recvBuff.length = 0;
 }
 
-function isInvalidIPAddress(address){
+function getCandidateAddress(candidate){
+    var candidateArray = candidate.split(' ');
+    return candidateArray[4];
+}
+
+function isInvalidIPAddress(candidate){
+    var address = getCandidateAddress(candidate);
+    var localIPRegExp = /127.0.0.1|192\.168\.\d+\.\d+|172\.20.\d+.\d+|10\.\d+\.\d+\.\d+/;
+    return address.match(localIPRegExp);
+}
+
+function doUsePrivateIP(){
     var usePrivateIPFlag = $('[name=use-privateip-flag]:checked').val();
-	if(usePrivateIPFlag == 1) return false; //valid
-	
-    var candidateArray = address.split(' ');
-    var localIPRegExp = /127.0.0.1|192\.168\.\d+\.\d+|172\.16.\d+.\d+|10\.\d+\.\d+\.\d+/;
-    return candidateArray[4].match(localIPRegExp);
+    if(usePrivateIPFlag == 1) return true;
+    return false;
 }
 
